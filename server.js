@@ -11,10 +11,10 @@ app.use(express.static("public"));
 const TICK_RATE = 30;
 const WORLD_SIZE = 3200;
 const START_MASS = 25;
-// Increase the amount of food to make the world more lively
-const FOOD_COUNT = 1500;
+// Double the food count so the map has more pellets to eat
+const FOOD_COUNT = 3000;
 const FOOD_MASS = 1.5;
-const FOOD_RESPAWN_BATCH = 50;
+const FOOD_RESPAWN_BATCH = 100;
 const PLAYER_EAT_RATIO = 1.25;
 
 const players = new Map();
@@ -82,8 +82,8 @@ function step(dt) {
     const dx = p.tx - p.x;
     const dy = p.ty - p.y;
     const dist = Math.hypot(dx, dy) || 1;
-    // Movement speed based on mass: f(x) = (x / x^1.44) * 10
-    const speed = (p.mass / Math.pow(p.mass, 1.44)) * 10;
+    // Small cells should move quickly while larger ones slow down
+    const speed = 100 / Math.sqrt(p.mass);
     const vx = (dx / dist) * speed;
     const vy = (dy / dist) * speed;
     p.x = clamp(p.x + vx * dt, -WORLD_SIZE, WORLD_SIZE);

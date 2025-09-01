@@ -108,7 +108,9 @@ function drawGrid(cam) {
   ctx.scale(cam.zoom, cam.zoom);
   ctx.translate(-cam.x, -cam.y);
   ctx.lineWidth = 1 / cam.zoom;
-  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--panel");
+  // Use a subtle grid color similar to the original Agar.io
+  const theme = document.documentElement.getAttribute("data-theme") || "dark";
+  ctx.strokeStyle = theme === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
   for (let x = Math.ceil(left / step) * step; x <= right; x += step) {
     ctx.beginPath();
     ctx.moveTo(x, top);
