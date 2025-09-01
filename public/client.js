@@ -136,12 +136,14 @@ function draw() {
   ctx.scale(cam.zoom, cam.zoom);
   ctx.translate(-cam.x, -cam.y);
 
-  ctx.fillStyle = theme === "dark" ? "#1f2937" : "#e5e7eb";
+  // Plain black or white world background instead of gray
+  ctx.fillStyle = theme === "dark" ? "#000000" : "#ffffff";
   ctx.fillRect(-worldSize, -worldSize, worldSize * 2, worldSize * 2);
 
-  ctx.fillStyle = theme === "dark" ? "#94a3b8" : "#94a3b8";
+  // Render each food pellet using its own color
   for (const f of state.foods) {
     ctx.beginPath();
+    ctx.fillStyle = f.color;
     ctx.arc(f.x, f.y, 3, 0, Math.PI * 2);
     ctx.fill();
   }
