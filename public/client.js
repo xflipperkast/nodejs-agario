@@ -5,7 +5,7 @@ const ctx = canvas.getContext("2d", { alpha: false });
 
 let myId = null;
 let worldSize = 3200;
-let state = { players: [], foods: [], leaderboard: [] };
+let state = { players: [], foods: [], viruses: [], leaderboard: [] };
 let my = null;
 let target = { x: 0, y: 0 };
 
@@ -90,6 +90,12 @@ setInterval(() => {
   socket.emit("input", { tx: target.x, ty: target.y });
 }, 50);
 
+window.addEventListener("keydown", e => {
+  if (!my) return;
+  if (e.code === "KeyW") socket.emit("eject");
+  if (e.code === "Space") socket.emit("split");
+});
+
 function toRadius(mass) { return Math.sqrt(mass) * 4; }
 
 function getCamera() {
@@ -103,12 +109,7 @@ function getCamera() {
 function drawGrid(cam) {
   const step = 100;
   const left = -worldSize, right = worldSize, top = -worldSize, bottom = worldSize;
-  ctx.save();
-  ctx.translate(canvas.width / 2, canvas.height / 2);
-  ctx.scale(cam.zoom, cam.zoom);
-  ctx.translate(-cam.x, -cam.y);
   ctx.lineWidth = 1 / cam.zoom;
-  // Use a subtle grid color similar to the original Agar.io
   const theme = document.documentElement.getAttribute("data-theme") || "dark";
   ctx.strokeStyle = theme === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
   for (let x = Math.ceil(left / step) * step; x <= right; x += step) {
@@ -123,7 +124,6 @@ function drawGrid(cam) {
     ctx.lineTo(right, y);
     ctx.stroke();
   }
-  ctx.restore();
 }
 
 function draw() {
@@ -131,8 +131,6 @@ function draw() {
   ctx.fillStyle = theme === "dark" ? "#0b0e11" : "#f5f7fb";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   const cam = getCamera();
-  drawGrid(cam);
-
   ctx.save();
   ctx.translate(canvas.width / 2, canvas.height / 2);
   ctx.scale(cam.zoom, cam.zoom);
@@ -142,11 +140,21 @@ function draw() {
   ctx.fillStyle = theme === "dark" ? "#000000" : "#ffffff";
   ctx.fillRect(-worldSize, -worldSize, worldSize * 2, worldSize * 2);
 
+  drawGrid(cam);
+
   // Render each food pellet using its own color
   for (const f of state.foods) {
     ctx.beginPath();
     ctx.fillStyle = f.color;
     ctx.arc(f.x, f.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Draw viruses as green circles
+  for (const v of state.viruses) {
+    ctx.beginPath();
+    ctx.fillStyle = "#33aa33";
+    ctx.arc(v.x, v.y, v.r, 0, Math.PI * 2);
     ctx.fill();
   }
 
