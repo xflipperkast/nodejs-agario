@@ -16,9 +16,16 @@ const FOOD_COUNT = 3000;
 const FOOD_MASS = 1.5;
 const FOOD_RESPAWN_BATCH = 100;
 const PLAYER_EAT_RATIO = 1.25;
+const EJECT_MASS = 14;
+const EJECT_SPEED = 400;
+const MAX_EJECT_PER_SEC = 7;
+const VIRUS_COUNT = 15;
+const VIRUS_MASS = 100;
 
 const players = new Map();
 const foods = new Map();
+const ejects = new Map();
+const viruses = new Map();
 
 function rand(min, max) { return Math.random() * (max - min) + min; }
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
@@ -37,6 +44,16 @@ function spawnFood(id) {
 
 for (let i = 0; i < FOOD_COUNT; i++) spawnFood(`f${i}`);
 
+function spawnVirus(id) {
+  viruses.set(id, {
+    id,
+    x: rand(-WORLD_SIZE, WORLD_SIZE),
+    y: rand(-WORLD_SIZE, WORLD_SIZE),
+    r: toRadius(VIRUS_MASS)
+  });
+}
+for (let i = 0; i < VIRUS_COUNT; i++) spawnVirus(`v${i}`);
+
 io.on("connection", socket => {
   socket.on("join", ({ name }) => {
     const color = `hsl(${Math.floor(rand(0,360))}deg 80% 55%)`;
@@ -51,7 +68,11 @@ io.on("connection", socket => {
       color,
       alive: true,
       score: 0,
-      lastInput: Date.now()
+      lastInput: Date.now(),
+      vx: 0,
+      vy: 0,
+      ejects: 0,
+      lastEject: 0
     };
     players.set(socket.id, player);
     socket.emit("init", {
@@ -68,13 +89,53 @@ io.on("connection", socket => {
     p.lastInput = Date.now();
   });
 
+  socket.on("eject", () => {
+    const p = players.get(socket.id);
+    if (!p || !p.alive) return;
+    const now = Date.now();
+    if (now - p.lastEject > 1000) { p.lastEject = now; p.ejects = 0; }
+    if (p.ejects >= MAX_EJECT_PER_SEC) return;
+    if (p.mass <= EJECT_MASS) return;
+    p.mass -= EJECT_MASS;
+    const angle = Math.atan2(p.ty - p.y, p.tx - p.x);
+    const id = `e${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+    ejects.set(id, {
+      id,
+      x: p.x,
+      y: p.y,
+      vx: Math.cos(angle) * EJECT_SPEED,
+      vy: Math.sin(angle) * EJECT_SPEED,
+      color: p.color
+    });
+    p.ejects++;
+  });
+
+  socket.on("split", () => {
+    const p = players.get(socket.id);
+    if (!p || !p.alive) return;
+    if (p.mass < 35) return;
+    const angle = Math.atan2(p.ty - p.y, p.tx - p.x);
+    p.vx += Math.cos(angle) * EJECT_SPEED;
+    p.vy += Math.sin(angle) * EJECT_SPEED;
+  });
+
   socket.on("disconnect", () => {
     players.delete(socket.id);
   });
 });
 
 function step(dt) {
+  for (const [id, e] of ejects) {
+    e.x += e.vx * dt;
+    e.y += e.vy * dt;
+    e.vx *= 0.9;
+    e.vy *= 0.9;
+    e.x = clamp(e.x, -WORLD_SIZE, WORLD_SIZE);
+    e.y = clamp(e.y, -WORLD_SIZE, WORLD_SIZE);
+  }
+
   const foodIds = Array.from(foods.keys());
+  const ejectIds = Array.from(ejects.keys());
   const playerArr = Array.from(players.values());
 
   for (const p of playerArr) {
@@ -82,12 +143,14 @@ function step(dt) {
     const dx = p.tx - p.x;
     const dy = p.ty - p.y;
     const dist = Math.hypot(dx, dy) || 1;
+    p.vx *= 0.9;
+    p.vy *= 0.9;
     // Small cells should move quickly while larger ones slow down
-    const speed = 100 / Math.sqrt(p.mass);
-    const vx = (dx / dist) * speed;
-    const vy = (dy / dist) * speed;
-    p.x = clamp(p.x + vx * dt, -WORLD_SIZE, WORLD_SIZE);
-    p.y = clamp(p.y + vy * dt, -WORLD_SIZE, WORLD_SIZE);
+    const speed = 150 / Math.sqrt(p.mass);
+    p.vx += (dx / dist) * speed;
+    p.vy += (dy / dist) * speed;
+    p.x = clamp(p.x + p.vx * dt, -WORLD_SIZE, WORLD_SIZE);
+    p.y = clamp(p.y + p.vy * dt, -WORLD_SIZE, WORLD_SIZE);
 
     const pr = toRadius(p.mass);
     for (let i = 0; i < foodIds.length; i++) {
@@ -99,6 +162,30 @@ function step(dt) {
         p.mass += FOOD_MASS;
         p.score = Math.max(p.score, p.mass);
         foods.delete(fid);
+      }
+    }
+
+    for (let i = 0; i < ejectIds.length; i++) {
+      const eid = ejectIds[i];
+      const e = ejects.get(eid);
+      if (!e) continue;
+      const d = Math.hypot(e.x - p.x, e.y - p.y);
+      if (d < pr) {
+        p.mass += EJECT_MASS * 0.7;
+        p.score = Math.max(p.score, p.mass);
+        ejects.delete(eid);
+      }
+    }
+
+    for (const [vid, v] of viruses) {
+      const d = Math.hypot(v.x - p.x, v.y - p.y);
+      if (d < pr + v.r && p.mass > VIRUS_MASS * 2) {
+        p.mass = p.mass / 2 + VIRUS_MASS;
+        const angle = Math.atan2(p.ty - p.y, p.tx - p.x);
+        p.vx += Math.cos(angle) * EJECT_SPEED;
+        p.vy += Math.sin(angle) * EJECT_SPEED;
+        viruses.delete(vid);
+        spawnVirus(`vx${Date.now()}_${Math.random().toString(36).slice(2,7)}`);
       }
     }
   }
@@ -156,7 +243,10 @@ function snapshot() {
     .map(v => ({ name: v.name, mass: v.mass }));
   const fs = [];
   for (const f of foods.values()) fs.push({ x: f.x, y: f.y, color: f.color });
-  return { players: ps, foods: fs, leaderboard: top };
+  for (const e of ejects.values()) fs.push({ x: e.x, y: e.y, color: e.color });
+  const vs = [];
+  for (const v of viruses.values()) vs.push({ x: v.x, y: v.y, r: v.r });
+  return { players: ps, foods: fs, viruses: vs, leaderboard: top };
 }
 
 setInterval(() => {
