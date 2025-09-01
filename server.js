@@ -11,11 +11,10 @@ app.use(express.static("public"));
 const TICK_RATE = 30;
 const WORLD_SIZE = 3200;
 const START_MASS = 25;
-const FOOD_COUNT = 600;
+// Increase the amount of food to make the world more lively
+const FOOD_COUNT = 1500;
 const FOOD_MASS = 1.5;
-const FOOD_RESPAWN_BATCH = 20;
-const MAX_SPEED = 9;
-const MASS_SPEED_DAMP = 0.06;
+const FOOD_RESPAWN_BATCH = 50;
 const PLAYER_EAT_RATIO = 1.25;
 
 const players = new Map();
@@ -26,7 +25,14 @@ function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 function toRadius(mass) { return Math.sqrt(mass) * 4; }
 
 function spawnFood(id) {
-  foods.set(id, { id, x: rand(-WORLD_SIZE, WORLD_SIZE), y: rand(-WORLD_SIZE, WORLD_SIZE) });
+  // Each food pellet gets a random color so the map looks more vibrant
+  const color = `hsl(${Math.floor(rand(0, 360))}deg 80% 55%)`;
+  foods.set(id, {
+    id,
+    x: rand(-WORLD_SIZE, WORLD_SIZE),
+    y: rand(-WORLD_SIZE, WORLD_SIZE),
+    color
+  });
 }
 
 for (let i = 0; i < FOOD_COUNT; i++) spawnFood(`f${i}`);
@@ -76,7 +82,8 @@ function step(dt) {
     const dx = p.tx - p.x;
     const dy = p.ty - p.y;
     const dist = Math.hypot(dx, dy) || 1;
-    const speed = Math.max(1.5, MAX_SPEED - MASS_SPEED_DAMP * Math.sqrt(p.mass));
+    // Movement speed based on mass: f(x) = (x / x^1.44) * 10
+    const speed = (p.mass / Math.pow(p.mass, 1.44)) * 10;
     const vx = (dx / dist) * speed;
     const vy = (dy / dist) * speed;
     p.x = clamp(p.x + vx * dt, -WORLD_SIZE, WORLD_SIZE);
@@ -148,7 +155,7 @@ function snapshot() {
     .slice(0, 10)
     .map(v => ({ name: v.name, mass: v.mass }));
   const fs = [];
-  for (const f of foods.values()) fs.push({ x: f.x, y: f.y });
+  for (const f of foods.values()) fs.push({ x: f.x, y: f.y, color: f.color });
   return { players: ps, foods: fs, leaderboard: top };
 }
 
@@ -159,4 +166,7 @@ setInterval(() => {
 }, 1000 / TICK_RATE);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {});
+// Log a message when the server starts so tests can confirm startup
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
