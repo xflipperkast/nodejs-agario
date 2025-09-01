@@ -8,6 +8,7 @@ let worldSize = 3200;
 let state = { players: [], foods: [], viruses: [], leaderboard: [] };
 let my = null;
 let target = { x: 0, y: 0 };
+let mouse = { x: 0, y: 0 };
 
 const nameInput = document.getElementById("name");
 const playBtn = document.getElementById("play");
@@ -53,7 +54,18 @@ socket.on("init", ({ id, world }) => {
 
 socket.on("state", s => {
   state = s;
-  my = s.players.find(p => p.id === myId) || null;
+  const myCells = s.players.filter(p => p.owner === myId);
+  if (myCells.length) {
+    let mass = 0, x = 0, y = 0;
+    for (const c of myCells) {
+      mass += c.mass;
+      x += c.x * c.mass;
+      y += c.y * c.mass;
+    }
+    my = { x: x / mass, y: y / mass, mass, cells: myCells };
+  } else {
+    my = null;
+  }
 });
 
 function resize() {
@@ -66,27 +78,23 @@ window.addEventListener("resize", resize);
 resize();
 
 canvas.addEventListener("mousemove", e => {
-  if (!my) return;
   const rect = canvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const myy = e.clientY - rect.top;
-  const cam = getCamera();
-  target.x = cam.x + (mx - canvas.width / (2 * (window.devicePixelRatio || 1))) / cam.zoom;
-  target.y = cam.y + (myy - canvas.height / (2 * (window.devicePixelRatio || 1))) / cam.zoom;
+  mouse.x = e.clientX - rect.left;
+  mouse.y = e.clientY - rect.top;
 });
 canvas.addEventListener("touchmove", e => {
-  if (!my) return;
   const t = e.touches[0];
   const rect = canvas.getBoundingClientRect();
-  const mx = t.clientX - rect.left;
-  const myy = t.clientY - rect.top;
-  const cam = getCamera();
-  target.x = cam.x + (mx - canvas.width / (2 * (window.devicePixelRatio || 1))) / cam.zoom;
-  target.y = cam.y + (myy - canvas.height / (2 * (window.devicePixelRatio || 1))) / cam.zoom;
+  mouse.x = t.clientX - rect.left;
+  mouse.y = t.clientY - rect.top;
 }, { passive: true });
 
 setInterval(() => {
   if (!my) return;
+  const dpr = window.devicePixelRatio || 1;
+  const cam = getCamera();
+  target.x = cam.x + (mouse.x - canvas.width / (2 * dpr)) / cam.zoom;
+  target.y = cam.y + (mouse.y - canvas.height / (2 * dpr)) / cam.zoom;
   socket.emit("input", { tx: target.x, ty: target.y });
 }, 50);
 
