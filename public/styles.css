@@ -1,0 +1,94 @@
+:root {
+  --bg: #0b0e11;
+  --tx: #f5f7fa;
+  --panel: #13171c;
+  --muted: #aeb6c2;
+  --accent: #4c8bf5;
+}
+:root[data-theme="light"] {
+  --bg: #f5f7fb;
+  --tx: #0b0e11;
+  --panel: #ffffff;
+  --muted: #475569;
+  --accent: #2563eb;
+}
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--tx);
+  height: 100%;
+  overflow: hidden;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+#game {
+  position: fixed;
+  inset: 0;
+  display: block;
+}
+#ui {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  z-index: 10;
+  pointer-events: none;
+}
+#ui .row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.2);
+  pointer-events: all;
+}
+#leaderboard {
+  margin-left: auto;
+  min-width: 200px;
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.2);
+  pointer-events: all;
+}
+#leaderboard h3 {
+  margin: 0 0 6px 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+#leaderboard .entry {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  padding: 4px 0;
+}
+input[type="text"], select, button, label {
+  font-size: 14px;
+}
+input[type="text"], select {
+  background: transparent;
+  color: var(--tx);
+  border: 1px solid var(--muted);
+  border-radius: 8px;
+  padding: 6px 10px;
+  outline: none;
+}
+button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
